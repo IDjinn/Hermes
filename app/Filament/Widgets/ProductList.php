@@ -2,8 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Product;
 use App\Models\User;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 
@@ -13,10 +15,13 @@ class ProductList extends BaseWidget
     {
         return $table
             ->query(
-                User::query()
+                Product::query()
             )
-            ->columns([
-              Tables\Columns\TextColumn::make("name")
+            ->columns(components: [
+                TextColumn::make("model"),
+                TextColumn::make("brand"),
+                TextColumn::make("part_number"),
+                TextColumn::make("datasheet"),
             ]);
     }
 }
