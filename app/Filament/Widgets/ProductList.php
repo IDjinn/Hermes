@@ -8,16 +8,19 @@ use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\SubCategory;
 use App\Models\User;
+use Dflydev\DotAccessData\Data;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Wizard\Step;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -25,6 +28,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Laravel\Prompts\Concerns\Colors;
+use Mockery\Matcher\Not;
+
 class ProductList extends BaseWidget
 {
     protected int|string|array $columnSpan = 'full';
@@ -81,7 +87,11 @@ class ProductList extends BaseWidget
                     ->steps($this->createRecordForm()),
             ])
             ->actions([
-                EditAction::make('test')
+                ViewAction::make()
+                    ->record($this->cachedMountedTableActionRecord),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
+                EditAction::make('edit')
                     ->record($this->cachedMountedTableActionRecord)
                     ->form($this->updateRecordForm())
                     ->successNotificationTitle('Product updated')
@@ -95,6 +105,7 @@ class ProductList extends BaseWidget
             ->defaultPaginationPageOption(50);
     }
 
+
     public function createRecordForm(): array
     {
         return [
@@ -102,6 +113,9 @@ class ProductList extends BaseWidget
                 ->description('Set your model name of product you want insert it.')
                 ->schema([
                     TextInput::make('model')
+                        ->rules([
+                            'uppercase'
+                        ])
                         ->required()
                         ->maxLength(200)
                 ]),
@@ -109,17 +123,50 @@ class ProductList extends BaseWidget
                 ->description('Pick one of the products brands available or insert a new one.')
                 ->schema([
                     Select::make('brand')
-                        ->options(Brand::all(['name'])->map(function ($brand) {
-                            return $brand->name;
-                        }))->searchable()->createOptionForm([
-                            TextInput::make('name')
-                                ->required(),
-                        ]), Select::make('product_type')
+                        ->options(Brand::all()->pluck('name', 'id'))
+                        ->searchable()
+                        ->preload()
+                        ->live()
+                        ->createOptionForm([
+                            TextInput::make('brand')
+                                ->ascii()
+                                ->unique(table: Brand::class,column: 'name')
+                                ->rules([
+                                    'uppercase'
+                                ])
+                                ->required()
+                        ])
+                        ->createOptionUsing(function (array $data){
+                            if (isset($data['brand'])) {
+                                $new_brand = Brand::query()->create(['name' => $data['brand']]);
+                                Notification::make('create_brand_ok')->title('Brand created successfully!')->success()->send();
+                                return $new_brand;
+                            }
+                            else  Notification::make('create_brand_error')
+                                ->title('Error while creating a brand')
+                                ->send();
+                        }),
+
+                    Select::make('product_type')
                         ->options(ProductType::all()->pluck('name', 'id'))
-                        ->searchable()->createOptionForm([
-                            TextInput::make('name')
-                                ->required(),
-                        ]),
+//                        ->searchable()
+                        ->createOptionForm([
+                            TextInput::make('product_type')
+                                ->ascii()
+                                ->unique(table: ProductType::class,column: 'name')
+                                ->rules([
+                                    'uppercase'
+                                ])
+                                ->required()
+                        ])
+                        ->createOptionUsing(function (array $data){
+                            if (isset($data['product_type']))
+                                return ProductType::query()->create(['name'=> $data['product_type']]);
+
+                            return Notification::make('create_product_type_error')
+                                ->title('Error while creating a product type')
+                                ->send();
+                        }),
                 ]),
             Step::make('Select the product category')
                 ->description('Choose one of the products categories available or insert a new one.')
