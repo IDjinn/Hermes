@@ -106,6 +106,7 @@ class ProductList extends BaseWidget
     }
 
 
+
     public function createRecordForm(): array
     {
         return [
@@ -124,9 +125,8 @@ class ProductList extends BaseWidget
                 ->schema([
                     Select::make('brand')
                         ->options(Brand::all()->pluck('name', 'id'))
-                        ->searchable()
                         ->preload()
-                        ->live()
+                        ->searchable()
                         ->createOptionForm([
                             TextInput::make('brand')
                                 ->ascii()
@@ -140,7 +140,7 @@ class ProductList extends BaseWidget
                             if (isset($data['brand'])) {
                                 $new_brand = Brand::query()->create(['name' => $data['brand']]);
                                 Notification::make('create_brand_ok')->title('Brand created successfully!')->success()->send();
-                                return $new_brand;
+                                return $new_brand->id;
                             }
                             else  Notification::make('create_brand_error')
                                 ->title('Error while creating a brand')
@@ -149,7 +149,7 @@ class ProductList extends BaseWidget
 
                     Select::make('product_type')
                         ->options(ProductType::all()->pluck('name', 'id'))
-//                        ->searchable()
+                        ->searchable()
                         ->createOptionForm([
                             TextInput::make('product_type')
                                 ->ascii()
@@ -160,8 +160,11 @@ class ProductList extends BaseWidget
                                 ->required()
                         ])
                         ->createOptionUsing(function (array $data){
-                            if (isset($data['product_type']))
-                                return ProductType::query()->create(['name'=> $data['product_type']]);
+                            if (isset($data['product_type'])) {
+                                $new_product_type = ProductType::query()->create(['name' => $data['product_type']]);
+                                Notification::make('create_product_type_ok')->title('Product type created successfully!')->success()->send();
+                                return $new_product_type->id;
+                            }
 
                             return Notification::make('create_product_type_error')
                                 ->title('Error while creating a product type')
