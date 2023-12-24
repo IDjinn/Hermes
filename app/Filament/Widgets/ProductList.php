@@ -1,57 +1,53 @@
 <?php
 
 namespace App\Filament\Widgets;
-
+use App\Filament\Imports\ProductImporter;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\SubCategory;
-use App\Models\User;
-use Dflydev\DotAccessData\Data;
-use Filament\Forms\Components\RichEditor;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Wizard\Step;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ImportAction;
+use Filament\Tables\Actions\RestoreBulkAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Log;
-use Filament\Tables\Filters\Filter;
+use Illuminate\Support\Collection;
 use Filament\Tables\Filters\SelectFilter;
-use Laravel\Prompts\Concerns\Colors;
-use Mockery\Matcher\Not;
 
 class ProductList extends BaseWidget
 {
     protected int|string|array $columnSpan = 'full';
     protected static bool $isLazy = true;
 
-    protected function getBrandOptions(): \Illuminate\Support\Collection
+    protected function getBrandOptions(): Collection
     {
         return Brand::all(['name'])->pluck('name', 'id');
     }
 
-    protected function getProductTypeOptions(): \Illuminate\Support\Collection
+    protected function getProductTypeOptions(): Collection
     {
         return ProductType::all(['name'])->pluck('name', 'id');
     }
 
-    protected function getCategoryOptions(): \Illuminate\Support\Collection
+    protected function getCategoryOptions(): Collection
     {
         return Category::all(['name'])->pluck('name', 'id');
     }
 
-    protected function getSubCategoryOptions(): \Illuminate\Support\Collection
+    protected function getSubCategoryOptions(): Collection
     {
         return SubCategory::all(['name'])->pluck('name', 'id');
     }
@@ -61,7 +57,7 @@ class ProductList extends BaseWidget
         return $table
             ->query(
                 Product::query()
-            )
+            )->searchable()
             ->columns(components: [
                 TextColumn::make('productType.name'),
                 TextColumn::make('_category.name'),
@@ -80,26 +76,36 @@ class ProductList extends BaseWidget
                 SelectFilter::make('brand')->options($this->getBrandOptions())->searchable(),
                 SelectFilter::make('product_type')->options($this->getProductTypeOptions())->searchable(),
                 SelectFilter::make('category')->options($this->getCategoryOptions())->searchable(),
-                SelectFilter::make('sub_category')->options($this->getSubCategoryOptions())->searchable(),
+                SelectFilter::make('sub_category')->options($this->getSubCategoryOptions())->searchable()
             ])
             ->headerActions([
+                ImportAction::make()
+                    ->importer(ProductImporter::class),
                 CreateAction::make()
                     ->steps($this->createRecordForm()),
             ])
             ->actions([
-                ViewAction::make()
-                    ->record($this->cachedMountedTableActionRecord),
-                Tables\Actions\DeleteAction::make(),
-                Tables\Actions\ForceDeleteAction::make(),
-                EditAction::make('edit')
-                    ->record($this->cachedMountedTableActionRecord)
-                    ->form($this->updateRecordForm())
-                    ->successNotificationTitle('Product updated')
+
+               Tables\Actions\ActionGroup::make([ ViewAction::make()
+                   ->form([
+                       TextInput::make('model')->maxLength(200),
+                       TextInput::make('brand'),
+                       TextInput::make('datasheet'),
+                       TextInput::make('product_type'),
+                       TextInput::make('category'),
+                       TextInput::make('sub_category'),
+                   ]),
+                   Tables\Actions\DeleteAction::make(),
+                   EditAction::make('edit')
+                       ->record($this->cachedMountedTableActionRecord)
+                       ->form($this->updateRecordForm())
+                       ->successNotificationTitle('Product updated')])
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                    RestoreBulkAction::make(),
+                    ]),
             ])
             ->paginated([25, 50, 150, 500])
             ->defaultPaginationPageOption(50);
