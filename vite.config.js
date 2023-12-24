@@ -8,4 +8,9 @@ export default defineConfig({
             refresh: true,
         }),
     ],
+    server: {
+        watch: {
+            include: ['resources/**/*.php', 'app/**/*.php', 'config/**/*.php', 'routes/**/*.php'],
+        },
+    },
 });

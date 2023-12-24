@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string("model", 200);
             $table->string("part_number", 200)->nullable();
-            $table->string("brand", 100);
+            $table->foreignId("brand");
             $table->string("datasheet")->nullable();
             $table->longText("extra")->nullable();
             $table->timestamps();

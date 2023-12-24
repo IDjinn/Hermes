@@ -54,9 +54,8 @@ class Product extends Model
     {
         return $this->hasOne(SubCategory::class, 'id', 'sub_category');
     }
-
     public function _brand(): HasOne
     {
-        return $this->hasOne(Brand::class, 'name', 'brand');
+        return $this->hasOne(Brand::class, 'id', 'brand');
     }
 }
