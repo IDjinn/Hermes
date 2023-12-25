@@ -135,7 +135,8 @@ class ProductResource extends Resource
                 Select::make('sub_category')
                     ->options(ProductResource::getSubCategoryOptions())
                     ->default($last_product?->sub_category)
-                    ->searchable()->createOptionForm([TextInput::make('sub_category')->required()])
+                    ->searchable()
+                    ->createOptionForm([TextInput::make('sub_category')->required()])
                     ->createOptionUsing(function (array $data, $form, Component $component) {
 //                        $category_picked = $component->getContainer()->getParentComponent()->getChildComponents()[0]->getState(); // TODO: find a way to get state without that trick
 //                        if (is_null($category_picked)) {
