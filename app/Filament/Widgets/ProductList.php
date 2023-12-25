@@ -89,11 +89,8 @@ class ProductList extends BaseWidget
                Tables\Actions\ActionGroup::make([ ViewAction::make()
                    ->form([
                        TextInput::make('model')->maxLength(200),
-                       TextInput::make('brand'),
-                       TextInput::make('datasheet'),
-                       TextInput::make('product_type'),
-                       TextInput::make('category'),
-                       TextInput::make('sub_category'),
+                       TextInput::make('productType.name'),
+                       TextInput::make('_brand.name'),
                    ]),
                    Tables\Actions\DeleteAction::make(),
                    EditAction::make('edit')
@@ -120,10 +117,10 @@ class ProductList extends BaseWidget
                 ->description('Set your model name of product you want insert it.')
                 ->schema([
                     TextInput::make('model')
+                        ->required()
                         ->rules([
                             'uppercase'
                         ])
-                        ->required()
                         ->maxLength(200)
                 ]),
             Step::make('Select the product brand')
@@ -183,15 +180,37 @@ class ProductList extends BaseWidget
                     Select::make('category')
                         ->options(Category::all()->pluck('name', 'id'))
                         ->searchable()->createOptionForm([
-                            TextInput::make('name')
+                            TextInput::make('category')
                                 ->required(),
-                        ]),
+                        ])
+                        ->createOptionUsing(function (array $data){
+                            if (isset($data['category'])) {
+                                $new_category = Category::query()->create(['name' => $data['category']]);
+                                Notification::make('create_category_ok')->title('Product category created successfully!')->success()->send();
+                                return $new_category->id;
+                            }
+
+                            Notification::make('create_category_error')
+                                ->title('Error while creating a product category')
+                                ->send();
+                        }),
                     Select::make('sub_category')
                         ->options(SubCategory::all()->pluck('name', 'id'))
                         ->searchable()->createOptionForm([
-                            TextInput::make('name')
+                            TextInput::make('sub_category')
                                 ->required(),
-                        ]),
+                        ])
+                        ->createOptionUsing(function (array $data){
+                            if (isset($data['sub_category'])) {
+                                $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category']]);
+                                Notification::make('create_sub_category_ok')->title('Product sub-category created successfully!')->success()->send();
+                                return $new_sub_category->id;
+                            }
+
+                            Notification::make('create_sub_category_error')
+                                ->title('Error while creating a product sub category')
+                                ->send();
+                        }),
                 ]),
         ];
     }
