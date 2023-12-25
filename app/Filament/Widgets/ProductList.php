@@ -12,10 +12,12 @@ use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Wizard\Step;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\CreateAction;
+use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ImportAction;
@@ -34,25 +36,26 @@ class ProductList extends BaseWidget
     protected static bool $isLazy = true;
 
 
-    protected function getBrandOptions(): Collection
+    protected static function getBrandOptions(): Collection
     {
-        return Brand::all(['name'])->pluck('name', 'id');
+        return Brand::all()->pluck('name', 'id');
     }
 
-    protected function getProductTypeOptions(): Collection
+    protected static function getProductTypeOptions(): Collection
     {
-        return ProductType::all(['name'])->pluck('name', 'id');
+        return ProductType::all()->pluck('name', 'id');
     }
 
-    protected function getCategoryOptions(): Collection
+    protected static function getCategoryOptions(): Collection
     {
-        return Category::all(['name'])->pluck('name', 'id');
+        return Category::all()->pluck('name', 'id');
     }
 
-    protected function getSubCategoryOptions(): Collection
+    protected static function getSubCategoryOptions(): Collection
     {
-        return SubCategory::all(['name'])->pluck('name', 'id');
+        return SubCategory::all()->pluck('name', 'id');
     }
+
 
     public function table(Table $table): Table
     {
@@ -75,41 +78,34 @@ class ProductList extends BaseWidget
                 TextColumn::make('datasheet'),
             ])
             ->filters([
-                SelectFilter::make('brand')->options($this->getBrandOptions())->searchable(),
-                SelectFilter::make('product_type')->options($this->getProductTypeOptions())->searchable(),
-                SelectFilter::make('category')->options($this->getCategoryOptions())->searchable(),
-                SelectFilter::make('sub_category')->options($this->getSubCategoryOptions())->searchable()
+                SelectFilter::make('brand')->options(self::getBrandOptions())->searchable(),
+                SelectFilter::make('product_type')->options(self::getProductTypeOptions())->searchable(),
+                SelectFilter::make('category')->options(self::getCategoryOptions())->searchable(),
+                SelectFilter::make('sub_category')->options(self::getSubCategoryOptions())->searchable(),
             ])
             ->headerActions([
-                ImportAction::make()
-                    ->importer(ProductImporter::class),
-                CreateAction::make()
-                    ->steps($this->createRecordForm()),
+                ImportAction::make()->importer(ProductImporter::class),
+                CreateAction::make()->steps($this->createRecordForm()),
             ])
             ->actions([
-
-               Tables\Actions\ActionGroup::make([ ViewAction::make()
-                   ->form([
-                       TextInput::make('model')->maxLength(200),
-                       TextInput::make('productType.name'),
-                       TextInput::make('_brand.name'),
-                   ]),
-                   Tables\Actions\DeleteAction::make(),
-                   EditAction::make('edit')
-                       ->record($this->cachedMountedTableActionRecord)
-                       ->form($this->updateRecordForm())
-                       ->successNotificationTitle('Product updated')])
+                Tables\Actions\ActionGroup::make([
+                    ViewAction::make()
+                        ->form($this->previewOrEditProductForm()),
+                    DeleteAction::make(),
+                    EditAction::make('edit')
+                        ->record($this->cachedMountedTableActionRecord)
+                        ->form($this->previewOrEditProductForm())
+                        ->successNotificationTitle('Product updated')])
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                     RestoreBulkAction::make(),
-                    ]),
+                ]),
             ])
             ->paginated([25, 50, 150, 500])
             ->defaultPaginationPageOption(50);
     }
-
 
 
     public function createRecordForm(): array
@@ -121,9 +117,7 @@ class ProductList extends BaseWidget
                     TextInput::make('model')
                         ->autofocus()
                         ->required()
-                        ->rules([
-                            'uppercase'
-                        ])
+                        ->rules(['uppercase'])
                         ->maxLength(200)
                 ]),
             Step::make('Select the product brand')
@@ -131,123 +125,173 @@ class ProductList extends BaseWidget
                 ->schema([
                     Select::make('brand')
                         ->autofocus()
-                        ->options(Brand::all()->pluck('name', 'id'))
+                        ->options(self::getBrandOptions())
                         ->preload()
                         ->searchable()
                         ->createOptionForm([
                             TextInput::make('brand')
                                 ->ascii()
-                                ->unique(table: Brand::class,column: 'name')
-                                ->rules([
-                                    'uppercase'
-                                ])
+                                ->unique(table: Brand::class, column: 'name')
+                                ->rules(['uppercase'])
                                 ->required()
                         ])
-                        ->createOptionUsing(function (array $data){
-                            if (isset($data['brand'])) {
-                                $new_brand = Brand::query()->create(['name' => $data['brand']]);
-                                Notification::make('create_brand_ok')->title('Brand created successfully!')->success()->send();
-                                return $new_brand->id;
-                            }
-
-                            Notification::make('create_brand_error')
-                                ->title('Error while creating a brand')
-                                ->send();
-                            return null;
-                        }),
+                        ->createOptionUsing($this->createBrand()),
 
                     Select::make('product_type')
-                        ->options(ProductType::all()->pluck('name', 'id'))
+                        ->options(self::getProductTypeOptions())
                         ->searchable()
                         ->createOptionForm([
                             TextInput::make('product_type')
                                 ->ascii()
-                                ->unique(table: ProductType::class,column: 'name')
-                                ->rules([
-                                    'uppercase'
-                                ])
+                                ->unique(table: ProductType::class, column: 'name')
+                                ->rules(['uppercase'])
                                 ->required()
                         ])
-                        ->createOptionUsing(function (array $data){
-                            if (isset($data['product_type'])) {
-                                $new_product_type = ProductType::query()->create(['name' => $data['product_type']]);
-                                Notification::make('create_product_type_ok')->title('Product type created successfully!')->success()->send();
-                                return $new_product_type->id;
-                            }
-
-                            Notification::make('create_product_type_error')
-                                ->title('Error while creating a product type')
-                                ->send();
-                            return null;
-                        }),
+                        ->createOptionUsing($this->createProductType()),
                 ]),
             Step::make('Select the product category')
                 ->description('Choose one of the products categories available or insert a new one.')
                 ->schema([
                     Select::make('category')
                         ->autofocus()
-                        ->options(Category::all()->pluck('name', 'id'))
-                        ->searchable()->createOptionForm([
-                            TextInput::make('category')
-                                ->required(),
-                        ])
-                        ->createOptionUsing(function (array $data){
-                            if (isset($data['category'])) {
-                                $new_category = Category::query()->create(['name' => $data['category']]);
-                                Notification::make('create_category_ok')->title('Product category created successfully!')->success()->send();
-                                return $new_category->id;
-                            }
-
-                            Notification::make('create_category_error')
-                                ->title('Error while creating a product category')
-                                ->send();
-                            return null;
-                        }),
+                        ->options(self::getSubCategoryOptions())
+                        ->searchable()
+                        ->createOptionForm([TextInput::make('category')->required()])
+                        ->createOptionUsing($this->createCategory()),
                     Select::make('sub_category')
-                        ->options(SubCategory::all()->pluck('name', 'id')) // TODO: show only sub categories with parent category equals inserted
-                        ->searchable()->createOptionForm([
-                            TextInput::make('sub_category')
-                                ->required(),
-                        ])
-                        ->createOptionUsing(function (array $data, $form, Component $component){
-                            $category_picked = $component->getContainer()->getParentComponent()->getChildComponents()[0]->getState(); // TODO: find a way to get state without that trick
-                            if (is_null($category_picked)){
-                                Notification::make('missing_category')
-                                    ->title('Error while creating a product sub category. You must select first a category.')
-                                    ->send();
-
-                                return null;
-                            }
-
-                            if (isset($data['sub_category'])) {
-                                $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category'], "parent_category_id" =>$category_picked ]);
-                                Notification::make('create_sub_category_ok')->title('Product sub-category created successfully!')->success()->send();
-                                return $new_sub_category->id;
-                            }
-
-                            Notification::make('create_sub_category_error')
-                                ->title('Error while creating a product sub category')
-                                ->send();
-
-                            return null;
-                        }),
+                        ->options(self::getSubCategoryOptions()) // TODO: show only sub categories with parent category equals inserted
+                        ->searchable()->createOptionForm([TextInput::make('sub_category')->required(),])
+                        ->createOptionUsing($this->createSubCategory()),
                 ]),
         ];
     }
 
-    public function updateRecordForm(): array
+    public function previewOrEditProductForm(): array
     {
         return [
-            TextInput::make('model')->maxLength(200),
+            TextInput::make('model')->maxLength(200)->required(),
             Select::make('brand')
-                ->options(Brand::all(['name'])->map(function ($brand) {
-                    return $brand->name;
-                }))->searchable(),
+                ->autofocus()
+                ->options(self::getBrandOptions())
+                ->preload()
+                ->searchable()
+                ->createOptionForm([
+                    TextInput::make('brand')
+                        ->ascii()
+                        ->unique(table: Brand::class, column: 'name')
+                        ->rules(['uppercase'])
+                        ->required()
+                ])
+                ->createOptionUsing($this->createBrand()),
+
             Select::make('product_type')
-                ->options(ProductType::all()->pluck('name', 'id'))->searchable(),
-            Select::make('category')->options($this->getCategoryOptions())->searchable(),
-            Select::make('sub_category')->options($this->getSubCategoryOptions())->searchable(),
+                ->options(self::getProductTypeOptions())
+                ->searchable()
+                ->createOptionForm([
+                    TextInput::make('product_type')
+                        ->ascii()
+                        ->unique(table: ProductType::class, column: 'name')
+                        ->rules(['uppercase'])
+                        ->required()
+                ])
+                ->createOptionUsing($this->createProductType()),
+            Select::make('category')
+                ->autofocus()
+                ->options(self::getSubCategoryOptions())
+                ->searchable()
+                ->createOptionForm([TextInput::make('category')->required()])
+                ->createOptionUsing($this->createCategory()),
+            Select::make('sub_category')
+                ->options(self::getSubCategoryOptions())
+                ->searchable()->createOptionForm([TextInput::make('sub_category')->required()])
+                ->createOptionUsing($this->createSubCategory()),
             TextInput::make('datasheet'),
         ];
+    }
+
+    /**
+     * @return \Closure
+     */
+    public function createCategory(): \Closure
+    {
+        return function (array $data) {
+            if (isset($data['category'])) {
+                $new_category = Category::query()->create(['name' => $data['category']]);
+                Notification::make('create_category_ok')->title('Product category created successfully!')->success()->send();
+                return $new_category->id;
+            }
+
+            Notification::make('create_category_error')
+                ->title('Error while creating a product category')
+                ->send();
+            return null;
+        };
+    }
+
+    /**
+     * @return \Closure
+     */
+    public function createSubCategory(): \Closure
+    {
+        return function (array $data, $form, Component $component) {
+            $category_picked = $component->getContainer()->getParentComponent()->getChildComponents()[0]->getState(); // TODO: find a way to get state without that trick
+            if (is_null($category_picked)) {
+                Notification::make('missing_category')
+                    ->title('Error while creating a product sub category. You must select first a category.')
+                    ->send();
+
+                return null;
+            }
+
+            if (isset($data['sub_category'])) {
+                $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category'], "parent_category_id" => $category_picked]);
+                Notification::make('create_sub_category_ok')->title('Product sub-category created successfully!')->success()->send();
+                return $new_sub_category->id;
+            }
+
+            Notification::make('create_sub_category_error')
+                ->title('Error while creating a product sub category')
+                ->send();
+
+            return null;
+        };
+    }
+
+    /**
+     * @return \Closure
+     */
+    public function createProductType(): \Closure
+    {
+        return function (array $data) {
+            if (isset($data['product_type'])) {
+                $new_product_type = ProductType::query()->create(['name' => $data['product_type']]);
+                Notification::make('create_product_type_ok')->title('Product type created successfully!')->success()->send();
+                return $new_product_type->id;
+            }
+
+            Notification::make('create_product_type_error')
+                ->title('Error while creating a product type')
+                ->send();
+            return null;
+        };
+    }
+
+    /**
+     * @return \Closure
+     */
+    public function createBrand(): \Closure
+    {
+        return function (array $data) {
+            if (isset($data['brand'])) {
+                $new_brand = Brand::query()->create(['name' => $data['brand']]);
+                Notification::make('create_brand_ok')->title('Brand created successfully!')->success()->send();
+                return $new_brand->id;
+            }
+
+            Notification::make('create_brand_error')
+                ->title('Error while creating a brand')
+                ->send();
+            return null;
+        };
     }
 }
