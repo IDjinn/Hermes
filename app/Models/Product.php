@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -45,7 +46,7 @@ class Product extends Model
         "brand",
         "datasheet",
         "extra",
-        "unit",
+//        "unit",
         "color",
         "price"
     ];
@@ -64,5 +65,10 @@ class Product extends Model
     public function _brand(): HasOne
     {
         return $this->hasOne(Brand::class, 'id', 'brand');
+    }
+
+    public function properties() : HasMany
+    {
+        return $this->hasMany(ProductProperties::class, 'product_id');
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\SubCategory;
+use Exception;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Select;
@@ -171,9 +172,7 @@ class ProductList extends BaseWidget
         return [
             TextInput::make('model')->maxLength(200)->required(),
             Select::make('brand')
-                ->autofocus()
                 ->options(self::getBrandOptions())
-                ->preload()
                 ->searchable()
                 ->createOptionForm([
                     TextInput::make('brand')
@@ -196,7 +195,6 @@ class ProductList extends BaseWidget
                 ])
                 ->createOptionUsing($this->createProductType()),
             Select::make('category')
-                ->autofocus()
                 ->options(self::getSubCategoryOptions())
                 ->searchable()
                 ->createOptionForm([TextInput::make('category')->required()])
