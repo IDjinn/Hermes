@@ -145,9 +145,11 @@ class ProductList extends BaseWidget
                                 Notification::make('create_brand_ok')->title('Brand created successfully!')->success()->send();
                                 return $new_brand->id;
                             }
-                            else  Notification::make('create_brand_error')
+
+                            Notification::make('create_brand_error')
                                 ->title('Error while creating a brand')
                                 ->send();
+                            return null;
                         }),
 
                     Select::make('product_type')
@@ -169,9 +171,10 @@ class ProductList extends BaseWidget
                                 return $new_product_type->id;
                             }
 
-                            return Notification::make('create_product_type_error')
+                            Notification::make('create_product_type_error')
                                 ->title('Error while creating a product type')
                                 ->send();
+                            return null;
                         }),
                 ]),
             Step::make('Select the product category')
@@ -193,6 +196,7 @@ class ProductList extends BaseWidget
                             Notification::make('create_category_error')
                                 ->title('Error while creating a product category')
                                 ->send();
+                            return null;
                         }),
                     Select::make('sub_category')
                         ->options(SubCategory::all()->pluck('name', 'id'))
@@ -210,6 +214,7 @@ class ProductList extends BaseWidget
                             Notification::make('create_sub_category_error')
                                 ->title('Error while creating a product sub category')
                                 ->send();
+                            return null;
                         }),
                 ]),
         ];

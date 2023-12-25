@@ -23,6 +23,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $brand
  * @property string|null $datasheet
  * @property string|null $extra
+ * @property string|null $unit
+ * @property string|null $color
+ * @property double|null $price
  */
 class Product extends Model
 {
@@ -41,7 +44,10 @@ class Product extends Model
         "part_number",
         "brand",
         "datasheet",
-        "extra"
+        "extra",
+        "unit",
+        "color",
+        "price"
     ];
     public function productType(): HasOne
     {
