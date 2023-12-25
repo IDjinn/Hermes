@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\SubCategory;
 use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Wizard\Step;
@@ -31,6 +32,7 @@ class ProductList extends BaseWidget
 {
     protected int|string|array $columnSpan = 'full';
     protected static bool $isLazy = true;
+
 
     protected function getBrandOptions(): Collection
     {
@@ -117,6 +119,7 @@ class ProductList extends BaseWidget
                 ->description('Set your model name of product you want insert it.')
                 ->schema([
                     TextInput::make('model')
+                        ->autofocus()
                         ->required()
                         ->rules([
                             'uppercase'
@@ -127,6 +130,7 @@ class ProductList extends BaseWidget
                 ->description('Pick one of the products brands available or insert a new one.')
                 ->schema([
                     Select::make('brand')
+                        ->autofocus()
                         ->options(Brand::all()->pluck('name', 'id'))
                         ->preload()
                         ->searchable()
@@ -181,6 +185,7 @@ class ProductList extends BaseWidget
                 ->description('Choose one of the products categories available or insert a new one.')
                 ->schema([
                     Select::make('category')
+                        ->autofocus()
                         ->options(Category::all()->pluck('name', 'id'))
                         ->searchable()->createOptionForm([
                             TextInput::make('category')
@@ -199,14 +204,23 @@ class ProductList extends BaseWidget
                             return null;
                         }),
                     Select::make('sub_category')
-                        ->options(SubCategory::all()->pluck('name', 'id'))
+                        ->options(SubCategory::all()->pluck('name', 'id')) // TODO: show only sub categories with parent category equals inserted
                         ->searchable()->createOptionForm([
                             TextInput::make('sub_category')
                                 ->required(),
                         ])
-                        ->createOptionUsing(function (array $data){
+                        ->createOptionUsing(function (array $data, $form, Component $component){
+                            $category_picked = $component->getContainer()->getParentComponent()->getChildComponents()[0]->getState(); // TODO: find a way to get state without that trick
+                            if (is_null($category_picked)){
+                                Notification::make('missing_category')
+                                    ->title('Error while creating a product sub category. You must select first a category.')
+                                    ->send();
+
+                                return null;
+                            }
+
                             if (isset($data['sub_category'])) {
-                                $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category']]);
+                                $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category'], "parent_category_id" =>$category_picked ]);
                                 Notification::make('create_sub_category_ok')->title('Product sub-category created successfully!')->success()->send();
                                 return $new_sub_category->id;
                             }
@@ -214,6 +228,7 @@ class ProductList extends BaseWidget
                             Notification::make('create_sub_category_error')
                                 ->title('Error while creating a product sub category')
                                 ->send();
+
                             return null;
                         }),
                 ]),
