@@ -51,6 +51,7 @@ class ProductPropertyTypesWidgetView extends BaseWidget
                                 return null;
                             }),
                         Select::make('category_id')
+                            ->id('category_id')
                             ->searchable()
                             ->options(ProductResource::getCategoryOptions())
                             ->createOptionForm([TextInput::make('category')->required()])
@@ -71,14 +72,20 @@ class ProductPropertyTypesWidgetView extends BaseWidget
                             ->options(ProductResource::getSubCategoryOptions())
                             ->createOptionForm([TextInput::make('sub_category')->required()])
                             ->createOptionUsing(function (array $data, $form, Component $component) {
-//                        $category_picked = $component->getContainer()->getParentComponent()->getChildComponents()[0]->getState(); // TODO: find a way to get state without that trick
-//                        if (is_null($category_picked)) {
-//                            Notification::make('missing_category')
-//                                ->title('Error while creating a product sub category. You must select first a category.')
-//                                ->send();
-//
-//                            return null;
-//                        }
+                                $category_picked = null;
+                                foreach ($form->getComponents() as $formComponent) {
+                                    if ($formComponent->getId() == 'category_id') {
+                                        $category_picked = $formComponent->getState();
+                                        break;
+                                    }
+                                }
+                                if (is_null($category_picked)) {
+                                    Notification::make('missing_category')
+                                        ->title('Error while creating a product sub category. You must select first a category.')
+                                        ->send();
+
+                                    return null;
+                                }
 
                                 if (isset($data['sub_category'])) {
                                     $new_sub_category = SubCategory::query()->create(['name' => $data['sub_category'], "parent_category_id" => $category_picked]);
